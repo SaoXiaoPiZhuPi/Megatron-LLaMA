@@ -39,8 +39,9 @@ options=" \
     --num-layers 32 \
         --hidden-size 4096 \
         --num-attention-heads 32 \
-        --seq-length 4096 \
+        --seq-length 16384 \
         --max-position-embeddings 8192 \
+        --no-position-embedding \
         --use-rotary-position-embeddings \
         --swiglu \
         --ffn-hidden-size 14336\

@@ -114,9 +114,13 @@ if __name__ == "__main__":
     # os.environ['NCCL_NET_GDR_READ'] = '0'
     # os.environ['NCCL_NET_GDR_LEVEL'] = '0'
     os.environ['NCCL_MIN_NCHANNELS'] = '16'
-
+    torch.cuda.reset_peak_memory_stats()
     pretrain(train_valid_test_datasets_provider, model_provider,
              ModelType.encoder_or_decoder,
              forward_step,
              args_defaults={'tokenizer_type': 'GPT2BPETokenizer'}
     )
+    current_device = torch.cuda.current_device()
+    # Get the peak reserved memory on the GPU
+    peak_reserved_memory = torch.cuda.max_memory_reserved(current_device) / (1024 ** 3)  # in GB
+    print(f"GPU {current_device}: Peak Reserved Memory: {peak_reserved_memory:.2f} GB")

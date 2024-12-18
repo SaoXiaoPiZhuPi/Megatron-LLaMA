@@ -106,6 +106,12 @@ class LLaMAModel(MegatronModule):
             shift_labels = shift_labels.to(shift_logits.device)
             loss = loss_fct(shift_logits, shift_labels)
 
+            # 和nnScaler对齐
+            # logits = logits.view(-1, self.padded_vocab_size)
+            # labels = labels.view(-1)
+            # normalized_logits = torch.nn.functional.log_softmax(logits, dim=-1, dtype=torch.float32)
+            # loss = torch.nn.functional.nll_loss(normalized_logits, labels, reduction='sum', ignore_index=-100)
+
             return loss
 
     def forward(self, input_ids, position_ids, attention_mask,

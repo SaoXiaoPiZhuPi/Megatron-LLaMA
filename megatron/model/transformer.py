@@ -26,7 +26,10 @@ except ImportError:
 try:
     from flash_attn.flash_attn_interface import flash_attn_unpadded_func
 except ImportError:
-    flash_attn_unpadded_func = None
+    try:
+        from flash_attn.flash_attn_interface import flash_attn_varlen_func as flash_attn_unpadded_func
+    except ImportError:
+        flash_attn_unpadded_func = None
 
 """ We use the following notation throughout this file:
      h: hidden size
@@ -551,7 +554,7 @@ class ParallelAttention(MegatronModule):
             # Attention heads [sq, b, h] --> [sq, b, (np * 3 * hn)]
             mixed_x_layer, _ = self.query_key_value(hidden_states)
             query_layer, key_layer, value_layer = tensor_parallel.split_tensor_along_last_dim(mixed_x_layer, 3)
-
+            # print(f'Andy: QKV shape {query_layer.shape=}, {key_layer.shape=}, {value_layer.shape=}')
             # Changed layout, for compatibility with CKPT conversion
             new_tensor_shape = query_layer.size()[:-1] + \
                 (self.num_attention_heads_per_partition, self.hidden_size_per_attention_head)
@@ -559,6 +562,7 @@ class ParallelAttention(MegatronModule):
             query_layer = query_layer.view(new_tensor_shape)
             key_layer = key_layer.view(new_tensor_shape)
             value_layer = value_layer.view(new_tensor_shape)
+            # print(f'Andy: QKV shape after view {query_layer.shape=}, {key_layer.shape=}, {value_layer.shape=}')
 
         else:
             # Attention heads [sk, b, h] --> [sk, b, (np * 2 * hn)]
@@ -639,8 +643,11 @@ class ParallelAttention(MegatronModule):
         # apply relative positional encoding (rotary embedding)
         if rotary_pos_emb is not None:
             q_pos_emb, k_pos_emb = rotary_pos_emb
+            # print(f'Andy: Before rotary, {query_layer.shape=}, {key_layer.shape=}')
             query_layer = apply_rotary_pos_emb(query_layer, q_pos_emb)
             key_layer = apply_rotary_pos_emb(key_layer, k_pos_emb)
+            # print(f'Andy: After rotary, {query_layer.shape=}, {key_layer.shape=}')
+
             # TODO, can apply positional embedding to value_layer so it has
             # absolute positional embedding.
             # otherwise, only relative positional embedding takes effect
@@ -668,6 +675,7 @@ class ParallelAttention(MegatronModule):
         # =================
 
         output, bias = self.dense(context_layer)
+        # print(f'Andy: output shape {output.shape=}')
 
         return output, bias
 

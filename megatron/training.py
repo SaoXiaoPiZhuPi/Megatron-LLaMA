@@ -6,6 +6,7 @@ from datetime import datetime
 import math
 import sys
 import time
+import os
 # The earliest we can measure the start time.
 _TRAIN_START_TIME = time.time()
 import torch
@@ -704,7 +705,22 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
     timers('interval-time', log_level=0).start(barrier=True)
     print_datetime('before the start of training step')
     report_memory_flag = True
+
+    from datetime import datetime  
+    now = datetime.now()
+    date_str=now.strftime("%m-%d")
+    time_str=now.strftime("%H-%M")
+    prof=torch.profiler.profile(
+            schedule=torch.profiler.schedule(wait=1, warmup=1, active=5, repeat=0),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler(f"/workspace/project-code/Megatron-LLaMA/examples/LLaMA/logs/tensorbroad/{date_str}/{time_str}",torch.cuda.current_device()),
+            record_shapes=True,
+            profile_memory=True,
+            with_stack=True)
     while iteration < args.train_iters:
+        if os.getenv('TORCH_PROFILER') == "True" and iteration == 20:
+            prof.start()
+        if os.getenv('TORCH_PROFILER') == "True" and iteration > 20 and iteration<=27:
+            prof.step()
         update_num_microbatches(args.consumed_train_samples)
         args.curr_iteration = iteration
         loss_dict, skipped_iter, grad_norm, num_zeros_in_grad = \
@@ -783,7 +799,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             torch.distributed.barrier()
             print_datetime('exiting program at iteration {}'.format(iteration))
             sys.exit()
-
+    if os.getenv('TORCH_PROFILER') == True: prof.stop() 
 
     return iteration
 

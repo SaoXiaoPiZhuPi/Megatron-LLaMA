@@ -16,7 +16,7 @@ GLOBAL_BATCH_SIZE=$(($DP_SIZE * 4))
 
 echo "GLOBAL_BATCH_SIZE is: $GLOBAL_BATCH_SIZE"
 
-JOB_NAME="LLaMA_dp${DP_SIZE}_tp${TP_SIZE}_pp${PP_SIZE}_gbs${GLOBAL_BATCH_SIZE}"
+JOB_NAME="LLaMA6B_no_Recompute_use_dp${DP_SIZE}_tp${TP_SIZE}_pp${PP_SIZE}_gbs${GLOBAL_BATCH_SIZE}"
 
 # TOKENIZER_PATH="/data/haiqwa/zevin_nfs/andy/Auto-Parallelization/nnscaler_group1/qinghe/nnscaler-main/examples/llama3_8B_128K/llama3_mini"
 TOKENIZER_PATH="/workspace/project-dataset/llama3-model/Meta-Llama-3-andy(20B)"
@@ -27,8 +27,8 @@ EVAL_INTERVAL=1000
 SAVE_INTERVAL=100
 LOG_INTERVAL=1
 
-export NCCL_SOCKET_IFNAME="eth0"
-export GLOO_SOCKET_IFNAME="eth0"
+# export NCCL_SOCKET_IFNAME="eth0"
+# export GLOO_SOCKET_IFNAME="eth0"
 
 # Setting --tensorboard-queue-size to 1 significantly slows down the training
 options=" \
@@ -36,7 +36,7 @@ options=" \
     --sequence-parallel \
         --tensor-model-parallel-size ${TP_SIZE} \
         --pipeline-model-parallel-size ${PP_SIZE} \
-    --num-layers 32 \
+    --num-layers 24 \
         --hidden-size 4096 \
         --num-attention-heads 32 \
         --seq-length 4096 \
@@ -65,7 +65,7 @@ options=" \
         --adam-beta2 0.95 \
         --clip-grad 1.0 \
         --weight-decay 0.1 \
-        --overlapped-distributed-optimizer \
+        --use-distributed-optimizer \
         --reduce-bucket-size=2e8 \
         --no-gradient-accumulation-fusion \
     --dataloader-type cyclic \
@@ -81,11 +81,12 @@ options=" \
         --log-validation-ppl-to-tensorboard \
     --job-name ${JOB_NAME} \
     --bf16 \
-    --recompute-activations \
-        --recompute-granularity selective \
     --use-flash-attn"
 
 DTIME=`date +%m-%d`
 MTIME=`date +%m-%d-%H-%M`
+mkdir -p logs/seq4k/${DTIME}
 # torchrun --master_addr=$MASTER_ADDR --node_rank=$NODE_RANK --nnodes=${NNODES} --nproc_per_node=8 --master_port=29500 /workspace/project-code/Megatron-LLaMA/pretrain_llama.py ${options}
+export TORCH_PROFILER=True
+
 torchrun --nnodes=${NNODES} --nproc_per_node=8 --master_port=29500 /workspace/project-code/Megatron-LLaMA/pretrain_llama.py ${options} 2>&1 | tee logs/seq4k/${DTIME}/${MTIME}.${JOB_NAME}.log
